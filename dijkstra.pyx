@@ -17,7 +17,7 @@ import heapq
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.nonecheck(False)
-def dijkstra_c(int32[:,:] f_nbrs_id, float64[:,:] f_nbrs_dis, int32[:] starts):
+def dijkstra_c(numpy.int32[:,:] f_nbrs_id, numpy.float64[:,:] f_nbrs_dis, numpy.int32[:] starts):
     # https://blog.paperspace.com/faster-numpy-array-processing-ndarray-cython/
     # 为什么numpy慢 https://stackoverflow.com/questions/42349587/cython-slow-numpy-arrays
     cdef int offset = starts[0]

@@ -465,6 +465,6 @@ class Segment:
 if __name__ == "__main__":
     for ply_name in ["knife", "scissor", "binoculars", "knob"]:
         ply = "scissor"  # 'dino' 'horse'
-        mesh_model = Model(f"data/{ply}.ply")
+        mesh_model = Model(f"data/{ply}.stl")
         Segment(mesh_model, 2).seg()
         mesh_model.write_ply(f"data/{ply}-output.ply")

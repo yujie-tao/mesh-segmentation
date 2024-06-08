@@ -344,7 +344,7 @@ class Segment:
                 prob[:, fid] = 1 / self.f_dis[fid][self.reps] / sum_prob  # 计算平均
 
         def assign():  # 给面片打标签
-            eps = 0.1 if self.num <= 3 else 0.02  # 确定清晰区域的阈值, 这个参数需要调，对分割结果影响较大
+            eps = 0.04 if self.num <= 20 else 0.02  # 确定清晰区域的阈值, 这个参数需要调，对分割结果影响较大
             counts = np.zeros(self.num)  # 每个类别的数量
             prob[[i for i in range(self.num) if i not in self.uniques]] = 0
             for fid in range(len(self.f_dis)):

@@ -439,7 +439,7 @@ class Segment:
         reps_f_dis = self.f_dis[self.reps][:, self.reps]
         local_max_patch_dis = np.max(reps_f_dis)
         if (
-            self.level > 2 or local_max_patch_dis / self.global_max_dis < 0.1
+            self.level > 0 or local_max_patch_dis / self.global_max_dis < 0.1
         ):  # 最多只递归一层，可调
             return
 
@@ -463,8 +463,8 @@ class Segment:
 
 
 if __name__ == "__main__":
-    # for ply_name in ["knife", "scissor", "binorcular", "dooor"]:
-    ply = "knife"  # 'dino' 'horse'
-    mesh_model = Model(f"data/{ply}.ply")
-    Segment(mesh_model, 2).seg()
-    mesh_model.write_ply(f"data/{ply}-output.ply")
+    for ply_name in ["knife", "scissor", "binorculars", "knob"]:
+        ply = "knife"  # 'dino' 'horse'
+        mesh_model = Model(f"data/{ply}.ply")
+        Segment(mesh_model, 2).seg()
+        mesh_model.write_ply(f"data/{ply}-output.ply")

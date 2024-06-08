@@ -298,9 +298,10 @@ class Segment:
                         rep = j
                 reps.append(rep)
                 G.append(max_dis)
-            num = (
-                np.argmax([G[num] - G[num + 1] for num in range(len(G) - 2)]) + 2
-            )  # 最大化G[num]-G[num+1]
+            # num = (
+            #     np.argmax([G[num] - G[num + 1] for num in range(len(G) - 2)]) + 2
+            # )  # 最大化G[num]-G[num+1]
+            num = 2
             # NOTE: 如果想进行二路分解，只需要直接在此处设置num=2
             return num, reps[:num]  # 种子数和代表点
 

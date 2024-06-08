@@ -12,11 +12,11 @@ def timed(func):
     # 函数运行计时
     @functools.wraps(func)
     def timed_wrapper(*args, **kwargs):
-        print(f'{func.__name__}', end=' ')
+        print(f"{func.__name__}", end=" ")
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        print(f'{end_time - start_time:.2f}s')
+        print(f"{end_time - start_time:.2f}s")
         return result
 
     return timed_wrapper
@@ -47,20 +47,20 @@ class Model:
     @staticmethod
     def read_ply(ply_path):
         vertices, faces, v_num, f_num = [], [], 0, 0
-        with open(ply_path, 'r') as f:
+        with open(ply_path, "r") as f:
             lines = [line.strip() for line in f.readlines()]
         for i, line in enumerate(lines):
-            if line.startswith('element vertex'):
-                v_num = int(line.split(' ')[-1])
-            if line.startswith('element face'):
-                f_num = int(line.split(' ')[-1])
-            if line == 'endheader':
+            if line.startswith("element vertex"):
+                v_num = int(line.split(" ")[-1])
+            if line.startswith("element face"):
+                f_num = int(line.split(" ")[-1])
+            if line == "endheader":
                 break
-        for line in lines[-(v_num + f_num):-f_num]:
-            x, y, z = line.split(' ')[:3]
+        for line in lines[-(v_num + f_num) : -f_num]:
+            x, y, z = line.split(" ")[:3]
             vertices.append([float(x), float(y), float(z)])
         for line in lines[-f_num:]:
-            v1, v2, v3 = line.split(' ')[1:4]
+            v1, v2, v3 = line.split(" ")[1:4]
             faces.append([int(v1), int(v2), int(v3)])
         return np.array(vertices), np.array(faces)
 
@@ -86,23 +86,39 @@ class Model:
         ang_dis = eta * (1 - np.dot(f0.norm, f1.norm))
         # 计算两个面片之间的测地距离
         # 计算方法：如果将两个面片展平，测地距离就是两质心相连的直线段，构成一个三角形，夹角就是angle0+angle1，用余弦定理就能算出距离
-        axis, d0, d1 = e_vs[1] - e_vs[0], f0.center - e_vs[0], f1.center - e_vs[0]  # 3个共起点的向量
+        axis, d0, d1 = (
+            e_vs[1] - e_vs[0],
+            f0.center - e_vs[0],
+            f1.center - e_vs[0],
+        )  # 3个共起点的向量
         axis_len, d0_len, d1_len = norm(axis), norm(d0), norm(d1)
         angle0 = np.arccos(np.dot(d0, axis) / d0_len / axis_len)
         angle1 = np.arccos(np.dot(d1, axis) / d1_len / axis_len)
-        geo_dis = d0_len * d0_len + d1_len * d1_len - 2 * d0_len * d1_len * np.cos(angle0 + angle1)
+        geo_dis = (
+            d0_len * d0_len
+            + d1_len * d1_len
+            - 2 * d0_len * d1_len * np.cos(angle0 + angle1)
+        )
 
         return angle, ang_dis, geo_dis
 
     def compute_neighbor(self):  # 将所有面片的邻边信息计算出来
         class Edge:
             def __init__(self, ev, fid):
-                self.vids = (ev[0], ev[1]) if ev[0] < ev[1] else (ev[1], ev[0])  # 两个顶点的id，升序
+                self.vids = (
+                    (ev[0], ev[1]) if ev[0] < ev[1] else (ev[1], ev[0])
+                )  # 两个顶点的id，升序
                 self.fid = fid  # 面片id
 
         es = []  # 所有棱边
         for i, vids in enumerate([f.vids for f in self.fs]):
-            es.extend([Edge((vids[0], vids[1]), i), Edge((vids[1], vids[2]), i), Edge((vids[2], vids[0]), i)])
+            es.extend(
+                [
+                    Edge((vids[0], vids[1]), i),
+                    Edge((vids[1], vids[2]), i),
+                    Edge((vids[2], vids[0]), i),
+                ]
+            )
         # 为所有面片找到与之相邻的面片，并计算相邻面片的角距离ang、测地距离geo和总距离
         visited_es = {}
         for e in es:
@@ -110,22 +126,33 @@ class Model:
                 visited_es[e.vids] = e.fid
             else:  # 遇到第二次才进行计算
                 f0, f1 = visited_es[e.vids], e.fid
-                angle, ang_dis, geo_dis = Model.compute_dis(self.fs[f0], self.fs[f1], self.vs[list(e.vids)])
-                self.fs[f0].nbrs.append(NeighborInfo(e.vids, f1, angle, ang_dis, geo_dis))
-                self.fs[f1].nbrs.append(NeighborInfo(e.vids, f0, angle, ang_dis, geo_dis))
+                angle, ang_dis, geo_dis = Model.compute_dis(
+                    self.fs[f0], self.fs[f1], self.vs[list(e.vids)]
+                )
+                self.fs[f0].nbrs.append(
+                    NeighborInfo(e.vids, f1, angle, ang_dis, geo_dis)
+                )
+                self.fs[f1].nbrs.append(
+                    NeighborInfo(e.vids, f0, angle, ang_dis, geo_dis)
+                )
         count = sum([len(f.nbrs) for f in self.fs])
-        self.avg_ang_dis = sum([sum([n.ang_dis for n in f.nbrs]) for f in self.fs]) / count
+        self.avg_ang_dis = (
+            sum([sum([n.ang_dis for n in f.nbrs]) for f in self.fs]) / count
+        )
         avg_geo_dis = sum([sum([n.geo_dis for n in f.nbrs]) for f in self.fs]) / count
         delta = 0.8
         for f in self.fs:
             for n in f.nbrs:
-                n.dis = (1 - delta) * n.ang_dis / self.avg_ang_dis + delta * n.geo_dis / avg_geo_dis
+                n.dis = (
+                    1 - delta
+                ) * n.ang_dis / self.avg_ang_dis + delta * n.geo_dis / avg_geo_dis
 
     @timed
     def compute_shortest(self):
         import multiprocessing
         import functools
         import dijkstra
+
         f_nbrs_id = [[n.fid for n in f.nbrs] for f in self.fs]
         f_nbrs_dis = [[n.dis for n in f.nbrs] for f in self.fs]
         assert all([len(x) == 3 for x in f_nbrs_id])  # 要求每个面片都有3个邻居
@@ -133,8 +160,13 @@ class Model:
 
         num_proc = 6  # 最短路算法并行，并行进程数
         with multiprocessing.Pool(num_proc) as p:
-            results = [res for res in p.imap(functools.partial(dijkstra.dijkstra_c, f_nbrs_id, f_nbrs_dis),
-                                             np.array_split(list(range(len(self.fs))), num_proc))]
+            results = [
+                res
+                for res in p.imap(
+                    functools.partial(dijkstra.dijkstra_c, f_nbrs_id, f_nbrs_dis),
+                    np.array_split(list(range(len(self.fs))), num_proc),
+                )
+            ]
         self.f_dis = np.concatenate(results, axis=0)
 
     def compute_flow(self, f_types):
@@ -157,14 +189,16 @@ class Model:
         es: List[List[FlowEdge]] = [[] for _ in range(len(self.fs) + 2)]
         for i, f in enumerate(self.fs):
             for n in f.nbrs:
-                es[i].append(FlowEdge(i, n.fid, 1 / (1 + n.ang_dis / self.avg_ang_dis), 0))
+                es[i].append(
+                    FlowEdge(i, n.fid, 1 / (1 + n.ang_dis / self.avg_ang_dis), 0)
+                )
         start, target = len(es) - 2, len(es) - 1
         f_types = np.array(list(f_types) + [4, 4])
         for i, f_type in enumerate(f_types):
             if f_type == 1:
-                es[start].append(FlowEdge(start, i, float('inf'), 0))
+                es[start].append(FlowEdge(start, i, float("inf"), 0))
             elif f_type == 2:
-                es[i].append(FlowEdge(i, target, float('inf'), 0))
+                es[i].append(FlowEdge(i, target, float("inf"), 0))
         for i in range(len(es)):
             if f_types[i]:
                 for e in es[i]:
@@ -175,7 +209,7 @@ class Model:
             # STEP1: 从源点一直BFS，碰到汇点就停
             p = [-1] * (len(self.fs) + 2)  # p[x], BFS中x的父结点
             a = [0.0] * (len(self.fs) + 2)  # a[x]: BFS中x的父结点给到的流量
-            a[start] = float('inf')
+            a[start] = float("inf")
             q, q_history = Queue(), []  # 用q_history存储历史
             q.put(start)
             while not q.empty():
@@ -210,19 +244,23 @@ class Model:
         return f_types
 
     def write_ply(self, ply_path):
-        with open(ply_path, 'w') as f:
-            f.write(f"ply\nformat ascii 1.0\n"
-                    f"element vertex {len(self.vs)}\nproperty float x\nproperty float y\nproperty float z\n"
-                    f"element face {len(self.fs)}\nproperty list uchar int vertex_indices\n"
-                    f"property uint8 red\nproperty uint8 green\nproperty uint8 blue\n"
-                    f"end_header\n")
+        with open(ply_path, "w") as f:
+            f.write(
+                f"ply\nformat ascii 1.0\n"
+                f"element vertex {len(self.vs)}\nproperty float x\nproperty float y\nproperty float z\n"
+                f"element face {len(self.fs)}\nproperty list uchar int vertex_indices\n"
+                f"property uint8 red\nproperty uint8 green\nproperty uint8 blue\n"
+                f"end_header\n"
+            )
             for v in self.vs:
-                f.write(f'{v[0]} {v[1]} {v[2]}\n')
+                f.write(f"{v[0]} {v[1]} {v[2]}\n")
             for face in self.fs:
-                f.write(f'3 {face.vids[0]} {face.vids[1]} {face.vids[2]} ')
+                f.write(f"3 {face.vids[0]} {face.vids[1]} {face.vids[2]} ")
                 label = face.label
-                f.write(f'{60 * (label % 4 + 1)} {80 * ((label + 1) % 3 + 1)} {50 * ((label + 2) % 5 + 1)}\n')
-        print(f'save to {ply_path}')
+                f.write(
+                    f"{60 * (label % 4 + 1)} {80 * ((label + 1) % 3 + 1)} {50 * ((label + 2) % 5 + 1)}\n"
+                )
+        print(f"save to {ply_path}")
 
 
 class Segment:
@@ -239,10 +277,14 @@ class Segment:
             return np.sum(arr) / (len(arr) * (len(arr) - 1))
 
         # 计算一些所需的最大距离/平均距离
-        local_max_dis_fids = np.unravel_index(self.f_dis.argmax(), self.f_dis.shape)  # 最远的一对面片
+        local_max_dis_fids = np.unravel_index(
+            self.f_dis.argmax(), self.f_dis.shape
+        )  # 最远的一对面片
         self.global_max_dis = self.model.f_dis.max() - self.model.f_dis.min()
         assert self.global_max_dis != np.inf  # 要求是连通图
-        self.global_avg_dis, self.local_avg_dis = average(self.model.f_dis), average(self.f_dis)
+        self.global_avg_dis, self.local_avg_dis = average(self.model.f_dis), average(
+            self.f_dis
+        )
 
         def k_way_reps():
             # 选到其他各点距离之和最小的点初始点
@@ -256,11 +298,18 @@ class Segment:
                         rep = j
                 reps.append(rep)
                 G.append(max_dis)
-            num = np.argmax([G[num] - G[num + 1] for num in range(len(G) - 2)]) + 2  # 最大化G[num]-G[num+1]
+            num = (
+                np.argmax([G[num] - G[num + 1] for num in range(len(G) - 2)]) + 2
+            )  # 最大化G[num]-G[num+1]
             # NOTE: 如果想进行二路分解，只需要直接在此处设置num=2
             return num, reps[:num]  # 种子数和代表点
 
-        self.num, self.reps = k_way_reps()  # 注意: reps是local变量，即reps[i]的值作为self.f_dis的索引而不是self.model.f_dis
+        (
+            self.num,
+            self.reps,
+        ) = (
+            k_way_reps()
+        )  # 注意: reps是local变量，即reps[i]的值作为self.f_dis的索引而不是self.model.f_dis
         # 用uniques记录不重复的reps的索引，有可能出现种子重复的情况，只考虑不重复的种子
         self.uniques = np.sort(np.unique(self.reps, return_index=True)[1])
 
@@ -278,14 +327,19 @@ class Segment:
 
     def seg(self):
         prob = np.zeros((self.num, len(self.f_dis)))
-        OFFSET, FUZZY = self.model.label_nums, self.model.label_nums + self.num  # OFFSET之前共有多少种类，FUZZY标志模糊区域
+        OFFSET, FUZZY = (
+            self.model.label_nums,
+            self.model.label_nums + self.num,
+        )  # OFFSET之前共有多少种类，FUZZY标志模糊区域
 
         def compute_prob():
             for fid in range(len(self.f_dis)):
                 if fid in self.reps:
                     prob[self.reps.index(fid)][fid] = 1
                     continue
-                sum_prob = sum([1 / self.f_dis[fid][self.reps[u]] for u in self.uniques])  # 只考虑不重合的点
+                sum_prob = sum(
+                    [1 / self.f_dis[fid][self.reps[u]] for u in self.uniques]
+                )  # 只考虑不重合的点
                 prob[:, fid] = 1 / self.f_dis[fid][self.reps] / sum_prob  # 计算平均
 
         def assign():  # 给面片打标签
@@ -294,7 +348,9 @@ class Segment:
             prob[[i for i in range(self.num) if i not in self.uniques]] = 0
             for fid in range(len(self.f_dis)):
                 if len(self.uniques) > 1:
-                    label1, label2 = heapq.nlargest(2, range(len(self.uniques)), prob[self.uniques, fid].take)
+                    label1, label2 = heapq.nlargest(
+                        2, range(len(self.uniques)), prob[self.uniques, fid].take
+                    )
                     prob1, prob2 = prob[label1][fid], prob[label2][fid]
                 else:
                     label1, label2, prob1, prob2 = self.uniques[0], -1, 1.0, 0.0
@@ -318,7 +374,9 @@ class Segment:
                     rep_dis[k] += self.f_dis[k_f]
             for k in range(self.num):
                 rep_dis[k] = rep_dis[k] / counts[k] if counts[k] else np.inf  # 求平均距离
-            prob[:] = 1 / (rep_dis + 1e-12) / np.sum(1 / (rep_dis + 1e-12), axis=0)  # 计算概率P
+            prob[:] = (
+                1 / (rep_dis + 1e-12) / np.sum(1 / (rep_dis + 1e-12), axis=0)
+            )  # 计算概率P
             # STEP2: 用论文3.3节第2部分计算新的种子
             rep_cost = np.dot(prob, self.f_dis)  # rep_cost[k][i]表示第k个类用i做种子的开销
             reps = list(np.argmin(rep_cost, axis=1))
@@ -332,7 +390,10 @@ class Segment:
                     f_types = np.zeros(len(self.model.fs))
                     # STEP1: 确定具体分割的面片，找到哪些是模糊区域 3， 哪些是边界区域1，2， 哪些是无关区域0
                     for fid, f in zip(self.fids, self.fs):
-                        if f.label == FUZZY + i * self.num + j or f.label == FUZZY + j * self.num + i:
+                        if (
+                            f.label == FUZZY + i * self.num + j
+                            or f.label == FUZZY + j * self.num + i
+                        ):
                             f_types[fid] = 3
                             for n in f.nbrs:
                                 nf = self.model.fs[n.fid]
@@ -349,7 +410,7 @@ class Segment:
                         elif f_types[fid] == 2:
                             self.model.fs[fid].label = OFFSET + j
 
-        for _ in tqdm(range(20), desc=f'{self.level} step'):
+        for _ in tqdm(range(20), desc=f"{self.level} step"):
             # 论文3.3中的STEP1: 计算概率
             compute_prob()
             # 论文3.3中的STEP2: 重新计算reps
@@ -357,8 +418,12 @@ class Segment:
             # STEP3: 判断是否更新
             new_cost = [cost[i][rep] for i, rep in enumerate(new_reps)]
             old_cost = [cost[i][rep] for i, rep in enumerate(self.reps)]
-            changed = any([(c1 < c0 - 1e-12 and r1 != r0)
-                           for r1, r0, c1, c0 in zip(new_reps, self.reps, new_cost, old_cost)])
+            changed = any(
+                [
+                    (c1 < c0 - 1e-12 and r1 != r0)
+                    for r1, r0, c1, c0 in zip(new_reps, self.reps, new_cost, old_cost)
+                ]
+            )
             if changed:
                 self.reps = new_reps
                 self.uniques = np.sort(np.unique(self.reps, return_index=True)[1])
@@ -372,7 +437,9 @@ class Segment:
 
         reps_f_dis = self.f_dis[self.reps][:, self.reps]
         local_max_patch_dis = np.max(reps_f_dis)
-        if self.level > 0 or local_max_patch_dis / self.global_max_dis < 0.1:  # 最多只递归一层，可调
+        if (
+            self.level > 0 or local_max_patch_dis / self.global_max_dis < 0.1
+        ):  # 最多只递归一层，可调
             return
 
         # 递归
@@ -380,15 +447,22 @@ class Segment:
         for sid in range(self.num):
             if sid in self.uniques:
                 # 先统一建好建所有segment，再统一seg，不然seg导致label被换了标记，取模运算会有问题
-                fids = [fid for fid in self.fids if self.model.fs[fid].label % self.num == sid]
+                fids = [
+                    fid
+                    for fid in self.fids
+                    if self.model.fs[fid].label % self.num == sid
+                ]
                 segments.append(Segment(self.model, self.level + 1, fids))
         for segment in segments:
-            if segment.ang_diff > 0.3 and segment.local_avg_dis / segment.global_avg_dis > 0.2:
+            if (
+                segment.ang_diff > 0.3
+                and segment.local_avg_dis / segment.global_avg_dis > 0.2
+            ):
                 segment.seg()
 
 
-if __name__ == '__main__':
-    ply = 'horse'  # 'dino' 'horse'
-    mesh_model = Model(f'data/{ply}.ply')
+if __name__ == "__main__":
+    ply = "knife"  # 'dino' 'horse'
+    mesh_model = Model(f"data/{ply}.ply")
     Segment(mesh_model, 0).seg()
-    mesh_model.write_ply(f'data/{ply}-output.ply')
+    mesh_model.write_ply(f"data/{ply}-output.ply")

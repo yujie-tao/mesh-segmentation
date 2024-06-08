@@ -344,40 +344,22 @@ class Segment:
                 prob[:, fid] = 1 / self.f_dis[fid][self.reps] / sum_prob  # 计算平均
 
         def assign():  # 给面片打标签
-            eps = 0.04  # 确定清晰区域的阈值, 这个参数需要调，对分割结果影响较大
+            eps = 0.07 if self.num <= 3 else 0.02  # 确定清晰区域的阈值, 这个参数需要调，对分割结果影响较大
             counts = np.zeros(self.num)  # 每个类别的数量
             prob[[i for i in range(self.num) if i not in self.uniques]] = 0
-
             for fid in range(len(self.f_dis)):
-                # Only two groups are being considered
-                label1, label2 = heapq.nlargest(
-                    2, range(len(self.uniques)), prob[self.uniques, fid].take
-                )
-                prob1, prob2 = prob[label1][fid], prob[label2][fid]
-
+                if len(self.uniques) > 1:
+                    label1, label2 = heapq.nlargest(
+                        2, range(len(self.uniques)), prob[self.uniques, fid].take
+                    )
+                    prob1, prob2 = prob[label1][fid], prob[label2][fid]
+                else:
+                    label1, label2, prob1, prob2 = self.uniques[0], -1, 1.0, 0.0
                 if prob1 - prob2 > eps:
                     self.fs[fid].label = OFFSET + label1
                     counts[label1] += 1
                 else:
                     self.fs[fid].label = FUZZY + label1 * self.num + label2
-
-        # def assign():  # 给面片打标签
-        #     eps = 0.04 if self.num <= 3 else 0.02  # 确定清晰区域的阈值, 这个参数需要调，对分割结果影响较大
-        #     counts = np.zeros(self.num)  # 每个类别的数量
-        #     prob[[i for i in range(self.num) if i not in self.uniques]] = 0
-        #     for fid in range(len(self.f_dis)):
-        #         if len(self.uniques) > 1:
-        #             label1, label2 = heapq.nlargest(
-        #                 2, range(len(self.uniques)), prob[self.uniques, fid].take
-        #             )
-        #             prob1, prob2 = prob[label1][fid], prob[label2][fid]
-        #         else:
-        #             label1, label2, prob1, prob2 = self.uniques[0], -1, 1.0, 0.0
-        #         if prob1 - prob2 > eps:
-        #             self.fs[fid].label = OFFSET + label1
-        #             counts[label1] += 1
-        #         else:
-        #             self.fs[fid].label = FUZZY + label1 * self.num + label2
 
         def recompute_reps():
             # STEP1: 用论文3.3节最后一段的改进方法来计算P(fi∈Sj)

@@ -463,7 +463,7 @@ class Segment:
 
 
 if __name__ == "__main__":
-    for ply_name in ["knife", "scissor", "binoculars", "knob"]:
+    for ply_name in ["knife", "scissors", "binoculars", "knob"]:
         ply = ply_name  # 'dino' 'horse'
         mesh_model = Model(f"data/{ply}.ply")
         Segment(mesh_model, 2).seg()

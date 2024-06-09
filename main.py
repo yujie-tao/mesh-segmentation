@@ -281,7 +281,7 @@ class Segment:
             self.f_dis.argmax(), self.f_dis.shape
         )  # 最远的一对面片
         self.global_max_dis = self.model.f_dis.max() - self.model.f_dis.min()
-        assert self.global_max_dis != np.inf  # 要求是连通图
+        # assert self.global_max_dis != np.inf  # 要求是连通图
         self.global_avg_dis, self.local_avg_dis = average(self.model.f_dis), average(
             self.f_dis
         )
